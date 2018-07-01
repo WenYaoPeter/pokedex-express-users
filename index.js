@@ -13,6 +13,7 @@ const methodOverride = require('method-override');
 const pg = require('pg');
 const sha256 = require('js-sha256');
 
+
 // Initialise postgres client
 const config = {
   user: 'wenyaolee',
@@ -199,6 +200,52 @@ const registerUser = (request, response) => {
     }
   })
 }
+
+const userLoginPage = (request, response) => {
+  response.render('userLoginPage');
+}
+
+const logUserIn = (request, response) => {
+  let loginUserName = request.body['loginUserName'];
+  let hashedLoginUserPassword = sha256(request.body['loginPassword']);
+
+  // compare user id and pw with the ones in database
+  // get the data from database
+  const queryString = `SELECT user_name, password FROM users`;
+  pool.query(queryString, (err, result) => {
+    if(err){
+      console.log('QUERY ERROR IN RETRIEVING USER_NAME & PW', err.result);
+    } else {
+      console.log('QUERY RESULT FOR USER_NAME & PW FROM DATABASE', result);
+      // console.log('QUERY RESULT FOR USER_NAME & PW FROM DATABASE', result.rows[0].password);
+      // console.log('password entered during login. NOT FROM DATABASE ' + hashedLoginUserPassword);
+      // console.log('QUERY RESULT FOR USER_NAME & PW FROM DATABASE', result.rows[0].user_name);
+      // console.log('username entered during login. NOT FROM DATABASE ' +loginUserName);
+      let dbUserName = result.rows[0].user_name;
+      let dbPassword = result.rows[0].password;
+
+      if ((loginUserName === dbUserName) && (hashedLoginUserPassword === dbPassword)) {
+          response.redirect('/pokemon/new');
+         }
+         else if ((loginUserName != dbUserName) && (hashedLoginUserPassword === dbPassword)) {
+          response.send('Enter a valid User Name');
+         }
+         else if ((loginUserName === dbUserName) && (hashedLoginUserPassword != dbPassword)) {
+          response.send('Enter a valid Password');
+         }
+         else if ((loginUserName != dbUserName) && (hashedLoginUserPassword != dbPassword)) {
+          response.send('Enter a valid User Name and Password');      
+         }
+         else if (!loginUserName && !hashedLoginUserPassword) {
+          response.send('Enter your User Name and Password');
+         }
+    }
+  })
+}
+
+// const userHomePage = (request,response) => {
+//   response.render('userHomePage');
+// }
 /**
  * ===================================
  * Routes
@@ -211,11 +258,13 @@ app.get('/pokemon/:id/edit', editPokemonForm);
 app.get('/pokemon/new', getNew);
 app.get('/pokemon/:id', getPokemon);
 app.get('/pokemon/:id/delete', deletePokemonForm);
-app.get('/pokeomon/user/registrationform', registrationForm);
+app.get('/pokemon/user/registrationform', registrationForm);
+app.get('/pokemon/user/login_page', userLoginPage);
 
 
 app.post('/pokemon', postPokemon);
 app.post('/pokemon/user/registration', registerUser);
+app.post('/pokemon/user', logUserIn);
 
 app.put('/pokemon/:id', updatePokemon);
 
