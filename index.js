@@ -12,6 +12,7 @@ const express = require('express');
 const methodOverride = require('method-override');
 const pg = require('pg');
 const sha256 = require('js-sha256');
+const cookieParser = require('cookie-parser');
 
 
 // Initialise postgres client
@@ -43,6 +44,7 @@ const app = express();
 
 app.use(express.urlencoded({ extended: true }));
 app.use(methodOverride('_method'));
+app.use(cookieParser());
 
 
 // Set react-views to be the default view engine
@@ -65,7 +67,7 @@ app.engine('jsx', reactEngine);
   const queryString = 'SELECT * from pokemon;';
   pool.query(queryString, (err, result) => {
     if (err) {
-      console.error('Query error:', err.stack);
+      console.error('getRoot Query error:', err.stack);
     } else {
       console.log('Query result2:', result.rows);
 
@@ -84,7 +86,7 @@ const getPokemon = (request, response) => {
   const queryString = 'SELECT * FROM pokemon WHERE id = ' + id + ';';
   pool.query(queryString, (err, result) => {
     if (err) {
-      console.error('Query error:', err.stack);
+      console.error('getNew Query error:', err.stack);
     } else {
       console.log('Query result:', result);
 
@@ -97,12 +99,12 @@ const getPokemon = (request, response) => {
 const postPokemon = (request, response) => {
   let params = request.body;
   
-  const queryString = 'INSERT INTO pokemon(name, height) VALUES($1, $2);';
-  const values = [params.name, params.height];
+  const queryString = 'INSERT INTO pokemon(id, num, name, img, height, weight) VALUES($1, $2, $3, $4, $5, $6);';
+  const values = [params.id, params.num, params.name, params.img, params.height, params.weight];
 
   pool.query(queryString, values, (err, result) => {
     if (err) {
-      console.log('query error:', err.stack);
+      console.log('postPokemon query error:', err.stack);
     } else {
       console.log('query result:', result);
 
@@ -117,7 +119,7 @@ const editPokemonForm = (request, response) => {
   const queryString = 'SELECT * FROM pokemon WHERE id = ' + id + ';';
   pool.query(queryString, (err, result) => {
     if (err) {
-      console.error('Query error:', err.stack);
+      console.error('editPokemon Query error:', err.stack);
     } else {
       console.log('Query result:', result);
 
@@ -135,7 +137,7 @@ const updatePokemon = (request, response) => {
   console.log(queryString);
   pool.query(queryString, values, (err, result) => {
     if (err) {
-      console.error('Query error:', err.stack);
+      console.error('updatePokemon Query error:', err.stack);
     } else {
       console.log('Query result:', result);
 
@@ -151,7 +153,7 @@ const deletePokemonForm = (request, response) => {
   const queryString = `SELECT * FROM pokemon WHERE id = ${deletePokemonId}`;
   pool.query(queryString, (err, result) => {
     if(err) {
-      console.error('Query error', err.stack);
+      console.error('deletePokemonFORM Query error', err.stack);
     } else {
       console.log('Query result:', result.rows[0])
       let content = {
@@ -171,7 +173,7 @@ const deletePokemon = (request, response) => {
 
   pool.query(queryString, (err, result) => {
     if(err) {
-      console.log('Query Query error', err.stack)
+      console.log('deletePokemon Query Query error', err.stack)
     } else {
       console.log('Query result: ', result)
       response.send('Pokemon Deleted');
@@ -187,6 +189,7 @@ const registerUser = (request, response) => {
   let newUserName =  request.body['userName'];
   let hashedNewUserPassword = sha256(request.body['password']);
   let newUserEmail =  request.body['email'];
+  response.cookie('regUser', newUserName);
 
   const queryString = `INSERT INTO users (user_name, password, email) VALUES ($1, $2, $3)`
   let values = [newUserName, hashedNewUserPassword, newUserEmail];
@@ -225,7 +228,7 @@ const logUserIn = (request, response) => {
       let dbPassword = result.rows[0].password;
 
       if ((loginUserName === dbUserName) && (hashedLoginUserPassword === dbPassword)) {
-          response.redirect('/pokemon/new');
+          response.redirect('/pokemon/user/user_home_page');
          }
          else if ((loginUserName != dbUserName) && (hashedLoginUserPassword === dbPassword)) {
           response.send('Enter a valid User Name');
@@ -243,9 +246,21 @@ const logUserIn = (request, response) => {
   })
 }
 
-// const userHomePage = (request,response) => {
-//   response.render('userHomePage');
-// }
+const userHomePage = (request, response) => {
+  const queryString = `SELECT user_name FROM users`;
+  pool.query(queryString, (err, result) => {
+    if(err){
+      console.log('QUERY ERROR IN RETRIEVING USER_NAME', err.result);
+    } else {
+      console.log('QUERY RESULT FOR USER_NAME FROM DATABASE', result.rows[0].user_name);
+      let context = {
+        user: result.rows[0]
+      }
+        response.render('userHomePage', context);
+  }
+  })
+}
+
 /**
  * ===================================
  * Routes
@@ -260,6 +275,7 @@ app.get('/pokemon/:id', getPokemon);
 app.get('/pokemon/:id/delete', deletePokemonForm);
 app.get('/pokemon/user/registrationform', registrationForm);
 app.get('/pokemon/user/login_page', userLoginPage);
+app.get('/pokemon/user/user_home_page', userHomePage);
 
 
 app.post('/pokemon', postPokemon);
