@@ -11,10 +11,11 @@
 const express = require('express');
 const methodOverride = require('method-override');
 const pg = require('pg');
+const sha256 = require('js-sha256');
 
 // Initialise postgres client
 const config = {
-  user: 'ck',
+  user: 'wenyaolee',
   host: '127.0.0.1',
   database: 'pokemons',
   port: 5432,
@@ -65,7 +66,7 @@ app.engine('jsx', reactEngine);
     if (err) {
       console.error('Query error:', err.stack);
     } else {
-      console.log('Query result:', result);
+      console.log('Query result2:', result.rows);
 
       // redirect to home page
       response.render( 'home', {pokemon: result.rows} );
@@ -144,11 +145,59 @@ const updatePokemon = (request, response) => {
 }
 
 const deletePokemonForm = (request, response) => {
-  response.send("COMPLETE ME");
+  let deletePokemonId = parseInt(request.params['id']);
+  console.log('before query string ' + deletePokemonId);
+  const queryString = `SELECT * FROM pokemon WHERE id = ${deletePokemonId}`;
+  pool.query(queryString, (err, result) => {
+    if(err) {
+      console.error('Query error', err.stack);
+    } else {
+      console.log('Query result:', result.rows[0])
+      let content = {
+      pokedex : result.rows[0]
+    }  
+
+      response.render('DeleteForm', content)
+    }
+
+  })
+   //response.send("COMPLETE ME");
 }
 
 const deletePokemon = (request, response) => {
-  response.send("COMPLETE ME");
+  let pokemonToDelete = parseInt(request.params['id']);
+  const queryString = 'DELETE FROM pokemon WHERE id = '+pokemonToDelete
+
+  pool.query(queryString, (err, result) => {
+    if(err) {
+      console.log('Query Query error', err.stack)
+    } else {
+      console.log('Query result: ', result)
+      response.send('Pokemon Deleted');
+    }
+  }) 
+}
+
+const registrationForm = (request, response) => {
+  response.render('registrationForm');
+}
+
+const registerUser = (request, response) => {
+  let newUserName =  request.body['userName'];
+  let hashedNewUserPassword = sha256(request.body['password']);
+  let newUserEmail =  request.body['email'];
+
+  const queryString = `INSERT INTO users (user_name, password, email) VALUES ($1, $2, $3)`
+  let values = [newUserName, hashedNewUserPassword, newUserEmail];
+
+  pool.query(queryString, values, (err, result) => {
+    if(err) {
+      console.log('QUERY ERROR IN REGISTERING NEW USER', err.stack);
+    } else {
+      console.log('QUERY RESULT FOR REGISTERING NEW USER', result);
+      response.send('New User Created');
+    }
+  })
 }
 /**
  * ===================================
@@ -162,8 +211,11 @@ app.get('/pokemon/:id/edit', editPokemonForm);
 app.get('/pokemon/new', getNew);
 app.get('/pokemon/:id', getPokemon);
 app.get('/pokemon/:id/delete', deletePokemonForm);
+app.get('/pokeomon/user/registrationform', registrationForm);
+
 
 app.post('/pokemon', postPokemon);
+app.post('/pokemon/user/registration', registerUser);
 
 app.put('/pokemon/:id', updatePokemon);
 
